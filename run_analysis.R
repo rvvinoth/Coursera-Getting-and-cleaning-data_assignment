@@ -1,0 +1,52 @@
+# just assume that the "UCI HAR Dataset" is put in the same R working directory
+data.rootdir <- "./UCI HAR Dataset"
+
+# Create (test or train) dataset function
+create.dataset <- function(data.name) {
+  # data folder path
+  data.dir <- paste(data.rootdir, "/", data.name, sep="")
+  
+  # measure names
+  measures <- read.table(paste(data.rootdir, "/features.txt", sep=""))
+  names(measures) <- c("measureID", "measureName")
+  
+  # indices of measurements on the mean and standard deviation for each measurement
+  target.measure.idx <- grep("mean|std", measures$measureName)
+  
+  # subject IDs
+  subject <- read.table(paste(data.dir, "/subject_", data.name, ".txt", sep=""))
+  names(subject) <- c("subjectID")
+  
+  # activity IDs
+  y.data <- read.table(paste(data.dir, "/y_", data.name, ".txt", sep=""))
+  # activity labels
+  y.names <- read.table(paste(data.rootdir, "/activity_labels.txt", sep=""))
+  # merge activity IDs and labels
+  y.data <- merge(y.data, y.names)
+  names(y.data) <- c("activityID", "activityName")
+  
+  # data of target measurements
+  x.data <- read.table(paste(data.dir, "/x_", data.name, ".txt", sep=""))
+  x.data.subset <- x.data[, target.measure.idx]
+  names(x.data.subset) <- measures$measureName[target.measure.idx]
+  
+  # return a tidy dataset
+  data.frame(subject, y.data, x.data.subset)
+}
+
+# tidy dataset
+train.df <- create.dataset("train")
+test.df <- create.dataset("test")
+data.df <- rbind(train.df, test.df)
+
+
+## 5. From data set in step 4, a second independent tidy data set is created
+## with the average of each variable for each activity and each subject.
+
+library(reshape2)
+vars <- c("activityID", "activityName", "subjectID")
+measure.vars <- setdiff(colnames(data.df), vars)
+data.melt <- melt(data.df, id=vars, measure.vars=measure.vars)
+data.df2 <- dcast(data.melt, activityName + subjectID ~ variable, mean)
+
+write.table(data.df2, file="tidy_data.txt", row.name=FALSE)
